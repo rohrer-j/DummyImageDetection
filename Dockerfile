@@ -1,28 +1,39 @@
 # Use Ubuntu as the base image
-FROM python
+FROM python as base
 
-# create directory
-RUN mkdir /service
+# Set working directory to the root of the project
+WORKDIR /app
 
-# Copy only the requirements file first (this way it will not retrigger pip install if only .py file changes)
-COPY requirements.txt /service/requirements.txt
-
-WORKDIR /service
+# Copy the requirement folder into the project
+COPY requirements.txt /app
 
 #install python packages
 RUN python3 -m pip install --upgrade pip
 RUN python3 -m pip install -r requirements.txt
+#end of base steps
 
-# copy the source files
-COPY src /service/src
-COPY protofiles/ /service/protobufs   
+#---------------------------Debug stage-----------------------------------
+FROM base as debug
 
-#create folder for generated files
-RUN mkdir generated
+# Install debugpy (Python debugger for remote debugging)
+RUN python3 -m pip install debugpy
+
+# Keeps Python from generating .pyc files in the container
+ENV PYTHONDONTWRITEBYTECODE 1
+# Turns off buffering for easier container logging
+ENV PYTHONUNBUFFERED 1
+
+# Expose the port for debugging
+EXPOSE 5678
+WORKDIR /app/src
+
+FROM base as production
+
+# Copy the src folder into the container for the production stage
+COPY src/ /app/src
 
 # Clean up to reduce image size
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
-
-EXPOSE 50051
-ENTRYPOINT [ "python3", "src/app.py" ]
+WORKDIR /app/src
+ENTRYPOINT [ "python3", "app.py" ]
